@@ -151,22 +151,26 @@
             const recognition = new SpeechRecognition();
 
             recognition.continuous = false; // Capture a single result each time
-            recognition.interimResults = false; // Only get final results
+            recognition.interimResults = true; // Mark as updated for live transcription
             recognition.lang = 'en-US';
 
             let isListening = false;
+            let finalTranscript = '';
 
             recognition.onstart = () => {
                 isListening = true;
                 microphoneBtn.classList.add('listening');
                 showMessage('Listening...', 'info');
-                responseBox.innerHTML = `<p><strong>You:</strong> <span class="text-gray-500">Listening...</span></p>`;
+                finalTranscript = ''; // Reset the transcript
             };
 
             recognition.onend = () => {
                 isListening = false;
                 microphoneBtn.classList.remove('listening');
                 showMessage('Click the microphone to speak.', 'info');
+                if (finalTranscript) {
+                    handleCommand(finalTranscript);
+                }
             };
 
             recognition.onerror = (event) => {
@@ -184,15 +188,23 @@
             };
 
             recognition.onresult = (event) => {
-                const transcript = event.results[0][0].transcript;
-                responseBox.innerHTML = `<p><strong>You:</strong> ${transcript}</p>`;
-                handleCommand(transcript);
+                let interimTranscript = '';
+                for (let i = event.resultIndex; i < event.results.length; ++i) {
+                    if (event.results[i].isFinal) {
+                        finalTranscript += event.results[i][0].transcript;
+                    } else {
+                        interimTranscript += event.results[i][0].transcript;
+                    }
+                }
+                // Mark as updated: display the live transcript in the response box
+                responseBox.innerHTML = `<p><strong>You:</strong> ${finalTranscript || ''} <span class="text-gray-500">${interimTranscript}</span></p>`;
             };
 
             microphoneBtn.addEventListener('click', () => {
                 if (isListening) {
                     recognition.stop();
                 } else {
+                    finalTranscript = '';
                     recognition.start();
                 }
             });
