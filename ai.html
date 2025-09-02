@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>JARVIS AI Assistant</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #0d1117;
+            color: #c9d1d9;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            padding: 1rem;
+        }
+        .container {
+            max-width: 800px;
+            width: 100%;
+            background-color: #161b22;
+            border: 1px solid #30363d;
+            border-radius: 12px;
+            padding: 2.5rem;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.2), 0 10px 15px rgba(0, 0, 0, 0.1);
+            position: relative;
+            overflow: hidden;
+            animation: glow-border 5s infinite alternate;
+        }
+        @keyframes glow-border {
+            0% { box-shadow: 0 0 5px #1c6b8c, 0 0 10px #1c6b8c, 0 0 15px #1c6b8c, 0 0 20px #1c6b8c; }
+            100% { box-shadow: 0 0 10px #24a19c, 0 0 20px #24a19c, 0 0 30px #24a19c, 0 0 40px #24a19c; }
+        }
+        #response-box {
+            background-color: #0d1117;
+            border: 1px solid #30363d;
+            border-radius: 8px;
+            padding: 1.5rem;
+            min-height: 200px;
+            max-height: 300px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            scrollbar-width: thin;
+            scrollbar-color: #30363d #161b22;
+        }
+        #response-box::-webkit-scrollbar {
+            width: 8px;
+        }
+        #response-box::-webkit-scrollbar-track {
+            background: #161b22;
+            border-radius: 10px;
+        }
+        #response-box::-webkit-scrollbar-thumb {
+            background-color: #30363d;
+            border-radius: 10px;
+            border: 2px solid #161b22;
+        }
+        .btn-mic {
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        .btn-mic:hover {
+            transform: scale(1.05);
+            box-shadow: 0 0 15px #24a19c;
+        }
+        .btn-mic.listening {
+            animation: pulse-glow 1.5s infinite;
+        }
+        @keyframes pulse-glow {
+            0% { transform: scale(1); box-shadow: 0 0 10px #24a19c; }
+            50% { transform: scale(1.1); box-shadow: 0 0 20px #24a19c; }
+            100% { transform: scale(1); box-shadow: 0 0 10px #24a19c; }
+        }
+        .message-box {
+            background-color: rgba(255, 255, 255, 0.1);
+            padding: 1rem;
+            border-radius: 8px;
+            margin-top: 1rem;
+            text-align: center;
+        }
+        .loader {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #3498db;
+            border-radius: 50%;
+            width: 24px;
+            height: 24px;
+            animation: spin 2s linear infinite;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body class="bg-gray-900 text-gray-100 antialiased">
+    <div class="container flex flex-col items-center p-8 m-4 space-y-6">
+        <h1 class="text-4xl font-bold text-center text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-teal-400">
+            JARVIS AI Assistant
+        </h1>
+        <p class="text-gray-400 text-center">
+            Click the microphone to start speaking. I am ready for your commands.
+        </p>
+
+        <div id="response-box" class="w-full text-sm leading-relaxed p-4 rounded-lg transition-all duration-300">
+            <p><strong>JARVIS:</strong> Initializing systems. Awaiting your command...</p>
+        </div>
+
+        <div class="flex items-center justify-center space-x-4">
+            <button id="microphone-btn" class="btn-mic w-16 h-16 bg-gray-800 rounded-full flex items-center justify-center border-2 border-cyan-500 text-cyan-400">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-8 h-8">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 18.75a6 6 0 0 0 6-6v-1.5m-6 7.5v3m6-7.5a6 6 0 0 0-6-6v-1.5m0 7.5v3m-6-7.5a6 6 0 0 0 6-6v-1.5M4.5 9a7.5 7.5 0 0 1 15 0v1.5m-15 0a7.5 7.5 0 0 0 15 0v1.5" />
+                </svg>
+            </button>
+        </div>
+
+        <div id="message-container" class="w-full text-center p-2"></div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const microphoneBtn = document.getElementById('microphone-btn');
+            const responseBox = document.getElementById('response-box');
+            const messageContainer = document.getElementById('message-container');
+            const loaderHTML = `<div class="loader-container flex items-center justify-center space-x-2"><div class="loader"></div><span>Thinking...</span></div>`;
+
+            // Function to display messages to the user
+            const showMessage = (text, type = 'info') => {
+                let colorClass = '';
+                if (type === 'error') colorClass = 'text-red-400';
+                else if (type === 'warning') colorClass = 'text-yellow-400';
+                else colorClass = 'text-gray-400';
+                messageContainer.innerHTML = `<p class="${colorClass}">${text}</p>`;
+            };
+
+            // Function to update the response box
+            const updateResponseBox = (text) => {
+                responseBox.innerHTML = `<p><strong>JARVIS:</strong> ${text}</p>`;
+                responseBox.scrollTop = responseBox.scrollHeight;
+            };
+
+            // Check for Web Speech API browser support
+            if (!('webkitSpeechRecognition' in window)) {
+                showMessage("Your browser does not support the Web Speech API. Please use a modern browser like Chrome.", 'error');
+                microphoneBtn.disabled = true;
+                return;
+            }
+
+            const SpeechRecognition = window.webkitSpeechRecognition;
+            const recognition = new SpeechRecognition();
+
+            recognition.continuous = false; // Capture a single result each time
+            recognition.interimResults = false; // Only get final results
+            recognition.lang = 'en-US';
+
+            let isListening = false;
+
+            recognition.onstart = () => {
+                isListening = true;
+                microphoneBtn.classList.add('listening');
+                showMessage('Listening...', 'info');
+                responseBox.innerHTML = `<p><strong>You:</strong> <span class="text-gray-500">Listening...</span></p>`;
+            };
+
+            recognition.onend = () => {
+                isListening = false;
+                microphoneBtn.classList.remove('listening');
+                showMessage('Click the microphone to speak.', 'info');
+            };
+
+            recognition.onerror = (event) => {
+                isListening = false;
+                microphoneBtn.classList.remove('listening');
+                if (event.error === 'not-allowed') {
+                    showMessage('Microphone access was denied. Please allow access in your browser settings.', 'error');
+                } else if (event.error === 'aborted') {
+                    showMessage('Voice recognition aborted. Please try again.', 'warning');
+                } else if (event.error === 'no-speech') {
+                    showMessage('No speech was detected. Please try again.', 'warning');
+                } else {
+                    showMessage(`Error occurred in recognition: ${event.error}`, 'error');
+                }
+            };
+
+            recognition.onresult = (event) => {
+                const transcript = event.results[0][0].transcript;
+                responseBox.innerHTML = `<p><strong>You:</strong> ${transcript}</p>`;
+                handleCommand(transcript);
+            };
+
+            microphoneBtn.addEventListener('click', () => {
+                if (isListening) {
+                    recognition.stop();
+                } else {
+                    recognition.start();
+                }
+            });
+
+            // The main command handler
+            const handleCommand = (command) => {
+                const lowerCommand = command.toLowerCase();
+                let isWebsiteRequest = false;
+
+                const websites = {
+                    'google': 'https://www.google.com',
+                    'youtube': 'https://www.youtube.com',
+                    'wikipedia': 'https://www.wikipedia.org',
+                    'github': 'https://www.github.com',
+                    'facebook': 'https://www.facebook.com',
+                    'twitter': 'https://www.twitter.com',
+                    'linkedin': 'https://www.linkedin.com',
+                    'weather': 'https://www.google.com/search?q=weather',
+                    'news': 'https://news.google.com'
+                };
+
+                // Check for website commands
+                for (const site in websites) {
+                    if (lowerCommand.includes(`open ${site}`) || lowerCommand.includes(`go to ${site}`)) {
+                        updateResponseBox(`Opening ${site}...`);
+                        window.open(websites[site], '_blank');
+                        isWebsiteRequest = true;
+                        break;
+                    }
+                }
+
+                // If not a website command, pass to the LLM
+                if (!isWebsiteRequest) {
+                    callGeminiAPI(command);
+                }
+            };
+
+            const callGeminiAPI = async (prompt) => {
+                updateResponseBox(loaderHTML);
+
+                // This is a placeholder for your API key. In a real app, you would use a secure backend.
+                // The provided environment automatically handles this for you.
+                const apiKey = "";
+                const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${apiKey}`;
+
+                const systemInstruction = "You are a highly advanced AI assistant named JARVIS. Your persona is polite, intelligent, and helpful. You must respond to all user queries in a concise and informative manner. Do not use markdown formatting like bold, italics, or lists. Only provide plain text. Do not pretend to be a human or provide any disclaimers about being an AI.";
+                const userQuery = prompt;
+
+                const payload = {
+                    contents: [{ parts: [{ text: userQuery }] }],
+                    systemInstruction: {
+                        parts: [{ text: systemInstruction }]
+                    },
+                };
+
+                try {
+                    const response = await fetch(apiUrl, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
+                    
+                    const result = await response.json();
+                    const candidate = result?.candidates?.[0];
+                    if (candidate && candidate.content?.parts?.[0]?.text) {
+                        const responseText = candidate.content.parts[0].text;
+                        updateResponseBox(responseText);
+                    } else {
+                        updateResponseBox("I'm sorry, I was unable to process your request. Please try again.");
+                        console.error("API response was not in the expected format:", result);
+                    }
+                } catch (error) {
+                    updateResponseBox("I encountered an error while trying to connect. Please check your internet connection and try again.");
+                    console.error("API call failed:", error);
+                }
+            };
+        });
+    </script>
+</body>
+</html>
